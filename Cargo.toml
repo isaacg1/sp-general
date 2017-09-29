@@ -1,0 +1,7 @@
+[package]
+name = "sp-general"
+version = "0.1.0"
+authors = ["igrosof"]
+
+[dependencies]
+itertools = "*"
