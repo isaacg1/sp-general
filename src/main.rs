@@ -82,12 +82,11 @@ impl Layout {
             succs.push(new);
         }
         if can_place_parallel {
-            let mut new = self.clone();
             for width in (1..self.processors + 1).rev() {
+                let mut new = self.clone();
                 let res = new.try_place_parallel(width);
                 if res.is_ok() {
                     succs.push(new);
-                    break;
                 }
             }
         }
