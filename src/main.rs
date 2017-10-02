@@ -39,8 +39,8 @@ struct Layout {
 
 impl Layout {
     fn new(processors: usize, mut serials: Vec<f64>, mut parallels: Vec<f64>) -> Self {
-        serials.sort_by_key(|&v|Wrap::Val(v));
-        parallels.sort_by_key(|&v|Wrap::Val(v));
+        serials.sort_by_key(|&v| Wrap::Val(v));
+        parallels.sort_by_key(|&v| Wrap::Val(v));
         Layout {
             processors: processors,
             serials: serials,
@@ -82,11 +82,12 @@ impl Layout {
             succs.push(new);
         }
         if can_place_parallel {
-            for width in 1..self.processors + 1 {
-                let mut new = self.clone();
+            let mut new = self.clone();
+            for width in (1..self.processors + 1).rev() {
                 let res = new.try_place_parallel(width);
                 if res.is_ok() {
                     succs.push(new);
+                    break;
                 }
             }
         }
@@ -220,8 +221,8 @@ fn srpt_layout(processors: usize, serials: &Vec<f64>, parallels: &Vec<f64>) -> L
 }
 
 fn main() {
-    let serials = (0..40).map(|i| (i * 2 + 1) as f64).collect();
-    let parallels = (0..40).map(|i| (i * 2 + 2) as f64).collect();
+    let serials = (0..4).map(|i| (i * 2 + 1) as f64).collect();
+    let parallels = (0..4).map(|i| (i * 2 + 2) as f64).collect();
     let processors = 5;
     let opt_layout = opt_layout(processors, &serials, &parallels);
     println!("Placements: {:?}", opt_layout.placements);
@@ -231,7 +232,7 @@ fn main() {
     println!("SRPT cost: {}", srpt_out.cost);
     let mut magic_parallels = serials.clone();
     magic_parallels.extend(parallels);
-    let magic = srpt_layout(processors, &vec!(), &magic_parallels);
+    let magic = srpt_layout(processors, &vec![], &magic_parallels);
     //println!("Placements: {:?}", magic.placements);
     println!("Magic cost: {}", magic.cost);
 
