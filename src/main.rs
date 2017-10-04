@@ -87,6 +87,7 @@ impl Layout {
                 let res = new.try_place_parallel(width);
                 if res.is_ok() {
                     succs.push(new);
+                    break;
                 }
             }
         }
@@ -137,7 +138,7 @@ impl Layout {
         if self.next_parallel_index == other.next_parallel_index &&
             self.next_serial_index == other.next_serial_index
         {
-            let cost_as_good = self.cost - other.cost < 1e-6;
+            let cost_diff = self.cost - other.cost;
 
             let mut sorted_self = self.profile.clone();
             sorted_self.sort_by_key(|&p| Wrap::Val(p));
@@ -146,14 +147,15 @@ impl Layout {
             let diffs = sorted_self.into_iter().zip(sorted_other).map(
                 |(s, o)| s - o,
             );
-            let mut diffs_as_good = true;
+            let mut worst_partial_sum_or_zero = 0.0;
             let mut partial_sum = 0.0;
             for diff in diffs {
                 partial_sum += diff;
-                let good_enough = partial_sum < 1e-6;
-                diffs_as_good &= good_enough;
+                if -partial_sum < worst_partial_sum_or_zero {
+                    worst_partial_sum_or_zero = -partial_sum
+                }
             }
-            diffs_as_good && cost_as_good
+            cost_diff < worst_partial_sum_or_zero + 1e-6
         } else {
             false
         }
@@ -168,19 +170,19 @@ fn opt_layout(processors: usize, serials: &Vec<f64>, parallels: &Vec<f64>) -> La
         for layout in &pool {
             new_pool.extend(layout.successors());
         }
-        new_pool.sort_by_key(|elt| (elt.next_serial_index, elt.next_parallel_index));
+        new_pool.sort_by_key(|elt| (elt.next_parallel_index, elt.next_serial_index));
         println!("{}th fresh pool size: {}", i, new_pool.len());
         let mut removal_indexes: Vec<usize> = vec![];
         for (_, group) in &new_pool.clone().into_iter().enumerate().group_by(
             |&(_, ref elt)| {
-                (elt.next_serial_index, elt.next_parallel_index)
+                (elt.next_parallel_index, elt.next_serial_index)
             },
         )
         {
             let group_vec: Vec<_> = group.collect();
             for (i1, layout1) in group_vec.clone().into_iter() {
                 for (i2, layout2) in group_vec.clone().into_iter() {
-                    if i1 != i2 && layout1.dominates(&layout2) {
+                    if i1 != i2 && !removal_indexes.contains(&i1) && layout1.dominates(&layout2) {
                         removal_indexes.push(i2)
                     }
                 }
@@ -220,9 +222,9 @@ fn srpt_layout(processors: usize, serials: &Vec<f64>, parallels: &Vec<f64>) -> L
 }
 
 fn main() {
-    let serials = (0..4).map(|i| (i * 2 + 1) as f64).collect();
-    let parallels = (0..4).map(|i| (i * 2 + 2) as f64).collect();
-    let processors = 5;
+    let serials = (0..40).map(|i|(2*i+1) as f64).collect();
+    let parallels = (0..40).map(|i|(2*i+2) as f64).collect();
+    let processors = 6;
     let opt_layout = opt_layout(processors, &serials, &parallels);
     println!("Placements: {:?}", opt_layout.placements);
     println!("Opt cost: {}", opt_layout.cost);
