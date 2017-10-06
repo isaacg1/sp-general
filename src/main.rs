@@ -168,14 +168,14 @@ impl Layout {
 
 fn opt_layout(processors: usize, serials: &Vec<f64>, parallels: &Vec<f64>) -> Layout {
     let mut pool = vec![Layout::new(processors, serials.clone(), parallels.clone())];
-    for i in 0..serials.len() + parallels.len() {
+    for _i in 0..serials.len() + parallels.len() {
         //println!("Pool: {:?}", pool.iter().map(|layout|layout.placements.clone()).collect::<Vec<_>>());
         let mut new_pool: Vec<Layout> = vec![];
         for layout in &pool {
             new_pool.extend(layout.successors());
         }
         new_pool.sort_by_key(|elt| (elt.next_parallel_index, elt.next_serial_index));
-        println!("{}th fresh pool size: {}", i, new_pool.len());
+        //println!("{}th fresh pool size: {}", i, new_pool.len());
         let mut removal_indexes: Vec<usize> = vec![];
         for (_, group) in &new_pool.clone().into_iter().enumerate().group_by(
             |&(_, ref elt)| {
@@ -198,7 +198,7 @@ fn opt_layout(processors: usize, serials: &Vec<f64>, parallels: &Vec<f64>) -> La
             .filter(|&(i, _)| !removal_indexes.contains(&i))
             .map(|(_, l)| l)
             .collect();
-        println!("{}th pruned pool size: {}", i, pool.len());
+        //println!("{}th pruned pool size: {}", i, pool.len());
     }
     pool.into_iter()
         .min_by_key(|layout| Wrap::Val(layout.cost))
@@ -256,18 +256,20 @@ fn interchange_layout(processors: usize, serials: &Vec<f64>, parallels: &Vec<f64
         changed = false;
         current = ordering_to_layout(&ordering, processors, serials, parallels);
         let mut new_ordering = ordering.clone();
-        for (start_index, window) in ordering.windows(2).enumerate() {
-            let prev = window[0];
-            let next = window[1];
-
-            if prev.1 != next.1 {
+        for (prev_index, &prev) in ordering.iter().enumerate().rev() {
+            let next_index = ordering[prev_index..]
+                .iter()
+                .position(|elem| prev.1 != elem.1)
+                .map(|v| v + prev_index);
+            if let Some(next_index) = next_index {
+                let next = ordering[next_index];
                 new_ordering = ordering.clone();
-                new_ordering[start_index] = next;
-                new_ordering[start_index + 1] = prev;
+                new_ordering[prev_index] = next;
+                new_ordering[next_index] = prev;
                 let new_layout = ordering_to_layout(&new_ordering, processors, serials, parallels);
                 if new_layout.cost < current.cost {
                     changed = true;
-                    println!("Swapped {:?} with {:?}", prev, next);
+                    //println!("Swapped {:?} with {:?}", prev, next);
                     break;
                 }
             }
@@ -280,9 +282,9 @@ fn interchange_layout(processors: usize, serials: &Vec<f64>, parallels: &Vec<f64
 }
 
 fn main() {
-    let serials = vec![2., 4., 6., 8.];
-    let parallels = vec![1., 3., 5., 7.];
-    let processors = 4;
+    let serials = (0..5).map(|i| (2 * i + 2) as f64).collect();
+    let parallels = (0..5).map(|i| (2 * i + 2) as f64).collect();
+    let processors = 3;
     let opt_layout = opt_layout(processors, &serials, &parallels);
     println!("Placements: {:?}", opt_layout.placements);
     println!("Opt cost: {}", opt_layout.cost);
@@ -290,6 +292,7 @@ fn main() {
     //println!("Placements: {:?}", srpt_out.placements);
     println!("SRPT cost: {}", srpt_out.cost);
     let interchange = interchange_layout(processors, &serials, &parallels);
+    println!("Placements: {:?}", interchange.placements);
     println!("Interchange cost: {}", interchange.cost);
     println!(
         "SRPT-OPT/(sum serial): {}",
